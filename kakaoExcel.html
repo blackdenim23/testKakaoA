@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>엑셀 주소 좌표 변환</title>
+</head>
+<body>
+  <h1>엑셀 데이터를 기반으로 주소 좌표 변환</h1>
+  <form id="upload-form">
+    <label for="excel-file">엑셀 좌표변환 파일업로드:</label>
+    <input type="file" id="excel-file" accept=".xlsx">
+    <button type="submit">시작</button>
+  </form>
+  <div id="result" style="margin-top: 20px; font-weight: bold;"></div>
+
+  <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script> -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script>
+  <script>
+    const apiKey = 'Kakao REST API'; // Kakao REST API 키를 입력하세요
+
+    // Kakao API로 좌표 가져오기
+    async function getCoordinates(address) {
+      const url = `https://dapi.kakao.com/v2/local/search/address.json?query=${encodeURIComponent(address)}`;
+      try {
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: {
+            Authorization: `KakaoAK ${apiKey}`,
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        if (data.documents.length > 0) {
+          const { x, y } = data.documents[0];
+          return { x, y };
+        } else {
+          return null;
+        }
+      } catch (error) {
+        console.error('Error fetching coordinates:', error);
+        return null;
+      }
+    }
+
+    // 엑셀 파일 처리
+    document.getElementById('upload-form').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      
+      const fileInput = document.getElementById('excel-file');
+      const resultDiv = document.getElementById('result');
+
+      if (fileInput.files.length === 0) {
+        resultDiv.textContent = '엑셀 파일을 선택해주세요.';
+        return;
+      }
+
+      const file = fileInput.files[0];
+      const reader = new FileReader();
+
+      reader.onload = async (e) => {
+        
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
+
+        if (rows.length === 0) {
+          resultDiv.textContent = '엑셀 파일에 데이터가 없습니다.';
+          return;
+        }
+
+        let results = [];
+        resultDiv.textContent = '좌표 변환 중...';
+
+        for (let i = 1; i < rows.length; i++) { // 첫 번째 행은 헤더로 가정
+          
+            const address = rows[i][0]; // 첫 번째 열을 주소로 가정
+          
+          if (!address) continue;
+            console.log(address);
+          const coords = await getCoordinates(address);
+          results.push({
+            address,
+            latitude: coords ? coords.y : 'N/A',
+            longitude: coords ? coords.x : 'N/A',
+          });
+        }
+
+        
+
+        // 변환 결과를 엑셀로 저장
+        const ws = XLSX.utils.json_to_sheet(results);
+
+
+        const colWidth = [
+          { width: 55 },
+          { width: 35 },
+          { width: 35 },        
+        ];
+      ws["!cols"] = colWidth; 
+
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Results');
+        XLSX.writeFile(wb, 'coordinates_results.xlsx');
+
+        // 결과 출력
+        resultDiv.textContent = '좌표 변환 완료.';
+      };
+
+      reader.readAsArrayBuffer(file);
+    });
+  </script>
+</body>
+</html>

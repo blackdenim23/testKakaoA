@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>엑셀 파일 읽기</title>
+</head>
+<body>
+    <h1>엑셀 파일 업로드</h1>
+
+    <!-- 엑셀 파일을 업로드하는 input 필드 -->
+    <input type="file" id="fileInput" accept=".xlsx, .xls" />
+    
+    <h2>엑셀 데이터</h2>
+    <pre id="output"></pre>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script>
+    <script>
+        // 파일 입력 필드에서 파일을 선택했을 때 처리하는 이벤트 리스너
+        document.getElementById('fileInput').addEventListener('change', function(event) {
+            var file = event.target.files[0];  // 업로드된 파일 가져오기
+
+            if (!file) return;  // 파일이 없으면 종료
+
+            // FileReader를 사용하여 파일을 읽음
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                // 파일 내용 읽기
+                var data = new Uint8Array(e.target.result);
+                
+                // 엑셀 파일을 읽고 워크북 객체로 변환
+                var workbook = XLSX.read(data, { type: 'array' });
+
+                // 첫 번째 시트 가져오기
+                var sheetName = workbook.SheetNames[0];
+                var sheet = workbook.Sheets[sheetName];
+
+                // 시트 데이터를 JSON으로 변환
+                var jsonData = XLSX.utils.sheet_to_json(sheet);
+
+                // 변환된 데이터를 화면에 출력
+                document.getElementById('output').textContent = JSON.stringify(jsonData, null, 2);
+                
+            };
+
+            // 파일을 ArrayBuffer로 읽기
+            reader.readAsArrayBuffer(file);
+        });
+    </script>
+</body>
+</html>
